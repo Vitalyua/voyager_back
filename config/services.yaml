@@ -12,6 +12,7 @@ parameters:
     azure_whatsapp.client_secret: '%env(AZURE_WHATSAPP_CLIENT_SECRET)%'
     azure_whatsapp.base_url: '%env(AZURE_WHATSAPP_BASE_URL)%'
     azure_whatsapp.channel_id: '%env(AZURE_WHATSAPP_CHANNEL_ID)%'
+    app.uploads_dir: '%kernel.project_dir%/var/uploads'
 
 services:
     # default configuration for services in *this* file
@@ -39,3 +40,7 @@ services:
     App\Controller\Api\WhatsAppWebhookController:
         arguments:
             $logger: '@monolog.logger.whatsapp'
+
+    App\Service\AttachmentStorage:
+        arguments:
+            $uploadsDir: '%app.uploads_dir%'
