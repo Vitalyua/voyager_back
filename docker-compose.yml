@@ -1,0 +1,44 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: .docker/php/Dockerfile
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - mysql
+    networks:
+      - voyager
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./.docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - voyager
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: voyager_db
+      MYSQL_USER: voyager
+      MYSQL_PASSWORD: voyager
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - voyager
+
+volumes:
+  mysql_data:
+
+networks:
+  voyager:
+    driver: bridge
