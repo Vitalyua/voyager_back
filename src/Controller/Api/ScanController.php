@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-final class ScanController extends AbstractController
+class ScanController extends AbstractController
 {
     private const string AWB_REGEX = '[0-9]{3}-[0-9]{8}';
 
