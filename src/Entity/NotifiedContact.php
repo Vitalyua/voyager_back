@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Entity;
+
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity]
+#[ORM\Table(name: 'notified_contact')]
+class NotifiedContact
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    private ?int $id = null;
+
+    #[ORM\ManyToOne(targetEntity: AcceptanceCheck::class, inversedBy: 'contacts')]
+    #[ORM\JoinColumn(name: 'check_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    private ?AcceptanceCheck $check = null;
+
+    #[ORM\Column(type: Types::STRING, length: 120)]
+    private string $name = '';
+
+    #[ORM\Column(type: Types::STRING, length: 80)]
+    private string $role = '';
+
+    #[ORM\Column(type: Types::STRING, length: 20)]
+    private string $channel = 'Email';
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getCheck(): ?AcceptanceCheck
+    {
+        return $this->check;
+    }
+
+    public function setCheck(?AcceptanceCheck $check): self
+    {
+        $this->check = $check;
+        return $this;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): self
+    {
+        $this->name = $name;
+        return $this;
+    }
+
+    public function getRole(): string
+    {
+        return $this->role;
+    }
+
+    public function setRole(string $role): self
+    {
+        $this->role = $role;
+        return $this;
+    }
+
+    public function getChannel(): string
+    {
+        return $this->channel;
+    }
+
+    public function setChannel(string $channel): self
+    {
+        $this->channel = $channel;
+        return $this;
+    }
+}
