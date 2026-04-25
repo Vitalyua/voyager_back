@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'notification')]
@@ -15,7 +17,9 @@ class Notification
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER)]
     private ?int $id = null;
-
+    #[ORM\OneToMany(mappedBy: 'notification', targetEntity: AwbEvent::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['legIndex' => 'ASC', 'estimatedTime' => 'ASC'])]
+    private Collection $awbEvents;
     #[ORM\Column(type: Types::JSON)]
     private array $json = [];
 
@@ -38,6 +42,29 @@ class Notification
 
     #[ORM\Column(name: 'roadmap', type: Types::JSON, nullable: true)]
     private ?array $roadmap = null;
+
+    #[ORM\Column(name: 'commodity', type: Types::STRING, length: 10, nullable: true)]
+    private ?string $commodity = null;
+
+    public function getCommodity(): ?string { return $this->commodity; }
+    public function setCommodity(?string $commodity): self { $this->commodity = $commodity; return $this; }
+
+    public function __construct()
+    {
+        $this->awbEvents = new ArrayCollection();
+    }
+
+    /** @return Collection<int, AwbEvent> */
+    public function getAwbEvents(): Collection { return $this->awbEvents; }
+
+    public function addAwbEvent(AwbEvent $e): self
+    {
+        if (!$this->awbEvents->contains($e)) {
+            $this->awbEvents->add($e);
+            $e->setNotification($this);
+        }
+        return $this;
+    }
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {

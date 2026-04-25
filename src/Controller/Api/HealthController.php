@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Entity\Notification;
+use App\Entity\AwbEvent;
 use App\Service\OneRecordClient;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,6 +23,11 @@ class HealthController extends AbstractController
     public function index(): JsonResponse
     {
         return $this->json(['status' => 'ok']);
+    }
+    private function pickRandomCommodity(): string
+    {
+        $commodities = ['PIL', 'PER', 'DGR', 'GEN'];
+        return $commodities[array_rand($commodities)];
     }
 
     #[Route('/api/prox', name: 'prox', methods: ['POST'])]
@@ -69,10 +75,18 @@ class HealthController extends AbstractController
                     $log->setWaybillNumber(is_string($number) ? $number : null);
 
                     if (!empty($prefix) && !empty($number)) {
-                        // сразу прибиваем рандомный рейс — сохраняется в БД, не нужно дёргать каждый раз в листинге
-                        $log->setFlights($this->pickRandomFlight());
-                        // roadmap пока пустой — будем заполнять отдельно
+                        $flights = $this->pickRandomFlight();
+                        $log->setFlights($flights);
                         $log->setRoadmap(null);
+                        $log->setCommodity($this->pickRandomCommodity());
+
+                        // awb-события только для первого лега
+                        $firstLeg = $flights['legs'][0] ?? null;
+                        if ($firstLeg !== null) {
+                            foreach ($this->buildAwbEvents($log, $firstLeg, 0) as $event) {
+                                $log->addAwbEvent($event);
+                            }
+                        }
 
                         $em->persist($log);
                         $em->flush();
@@ -96,28 +110,25 @@ class HealthController extends AbstractController
     private function buildRoadmap(array $leg): array
     {
         $std = new \DateTimeImmutable($leg['departure']);
-        $ata = new \DateTimeImmutable($leg['arrival']);
 
-        // [code, name, base, offset_min_minutes, offset_max_minutes]
-        // отрицательные значения = до базы, положительные = после
+        // [code, name, offset_minutes от STD]
         $milestones = [
-            ['RCS', 'Ready for Carriage',          $std, -120, -90],
-            ['MAN', 'Manifested',                  $std,  -75, -60],
-            ['FOC', 'Freight on Board',            $std,  -45, -30],
-            ['DEP', 'Departed',                    $std,  -15,  15],
-            ['SAC', 'Shipment Accepted at Transit',$ata,   60,  90],
+            ['FOH', 'Freight on Hand',            -360], // -6h
+            ['SAC', 'Shipment Accepted',          -300], // -5h
+            ['RCS', 'Ready for Carriage',         -240], // -4h
+            ['MAN', 'Manifested',                 -120], // -2h
+            ['DEP', 'Departed',                      0], // STD
         ];
 
         $roadmap = [];
-        foreach ($milestones as [$code, $name, $base, $minOffset, $maxOffset]) {
+        foreach ($milestones as [$code, $name, $offset]) {
             $roadmap[] = [
-                'code' => $code,
-                'name' => $name,
-                'min'  => $this->shiftMinutes($base, $minOffset)->format('c'),
-                'max'  => $this->shiftMinutes($base, $maxOffset)->format('c'),
+                'code'           => $code,
+                'name'           => $name,
+                'estimated_time' => $this->shiftMinutes($std, $offset)->format('c'),
+                'actual_time' =>  null,
             ];
         }
-
         return $roadmap;
     }
 
@@ -173,12 +184,19 @@ class HealthController extends AbstractController
                 'logistic_object_type' => $n->getLogisticObjectType(),
                 'waybill_prefix'       => $n->getWaybillPrefix(),
                 'waybill_number'       => $n->getWaybillNumber(),
+                'commodity' => $n->getCommodity(),
                 'pieces'               => $enriched['pieces'],
                 'last_event'           => $enriched['last_event'],
                 'departureLocation'    => $enriched['departureLocation'],
                 'arrivalLocation'      => $enriched['arrivalLocation'],
                 'flight'               => $enriched['flight'],
-                'roadmap'              => $enriched['roadmap'],
+                'awb_events' => array_map(static fn (\App\Entity\AwbEvent $e) => [
+                    'leg'            => $e->getLegIndex(),
+                    'code'           => $e->getCode(),
+                    'name'           => $e->getName(),
+                    'estimated_time' => $e->getEstimatedTime()?->format(\DateTimeInterface::ATOM),
+                    'actual_time'    => $e->getActualTime()?->format(\DateTimeInterface::ATOM),
+                ], $n->getAwbEvents()->toArray()),
             ];
         }
 
@@ -187,7 +205,30 @@ class HealthController extends AbstractController
             'items' => $result,
         ]);
     }
+    private function parseDateTime(mixed $value): ?\DateTimeImmutable
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (!is_string($value)) {
+            throw new \InvalidArgumentException('expected string or null');
+        }
+        return new \DateTimeImmutable($value);
+    }
 
+    private function serializeAwbEvent(AwbEvent $e): array
+    {
+        return [
+            'id'              => $e->getId(),
+            'notification_id' => $e->getNotification()?->getId(),
+            'leg_index'       => $e->getLegIndex(),
+            'code'            => $e->getCode(),
+            'name'            => $e->getName(),
+            'estimated_time'  => $e->getEstimatedTime()?->format(\DateTimeInterface::ATOM),
+            'actual_time'     => $e->getActualTime()?->format(\DateTimeInterface::ATOM),
+            'created'         => $e->getCreated()?->format(\DateTimeInterface::ATOM),
+        ];
+    }
     /**
      * Подтягивает по shipment_id из нотификации pieces / last_event / departure / arrival.
      * Любая ошибка по конкретной нотификации не валит весь список.
@@ -327,12 +368,39 @@ class HealthController extends AbstractController
             $leg['arrival']   = $arrDate->setTime((int) $ah, (int) $am)->format('c');
 
             // roadmap живёт внутри лега
-            $leg['roadmap'] = $this->buildRoadmap($leg);
+//            $leg['roadmap'] = $this->buildRoadmap($leg);
         }
         unset($leg);
 
         return ['legs' => $fl];
     }
+
+    private function buildAwbEvents(Notification $n, array $leg, int $legIndex): array
+    {
+        $std = new \DateTimeImmutable($leg['departure']);
+
+        // [code, name, offset_minutes от STD]
+        $milestones = [
+            ['FOH', 'Freight on Hand',     -360],
+            ['SAC', 'Shipment Accepted',   -300],
+            ['RCS', 'Ready for Carriage',  -240],
+            ['MAN', 'Manifested',          -120],
+            ['DEP', 'Departed',               0],
+        ];
+
+        $events = [];
+        foreach ($milestones as [$code, $name, $offset]) {
+            $events[] = (new AwbEvent())
+                ->setNotification($n)
+                ->setLegIndex($legIndex)
+                ->setCode($code)
+                ->setName($name)
+                ->setEstimatedTime($this->shiftMinutes($std, $offset));
+        }
+
+        return $events;
+    }
+
     #[Route('/api/shipments/{id}', name: 'shipment_get', methods: ['GET'])]
     public function shipmentInfo(string $id, OneRecordClient $client): JsonResponse
     {
@@ -476,5 +544,84 @@ class HealthController extends AbstractController
         }
 
         return $result;
+    }
+
+    #[Route('/api/notifications/{notificationId}/awb-events', name: 'awb_event_create', methods: ['POST'])]
+    public function createAwbEvent(
+        int $notificationId,
+        Request $request,
+        EntityManagerInterface $em,
+    ): JsonResponse {
+        $notification = $em->getRepository(Notification::class)->find($notificationId);
+        if (!$notification) {
+            return $this->json(['error' => 'Notification not found'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        $code = $data['code'] ?? null;
+        $name = $data['name'] ?? null;
+
+        if (!is_string($code) || $code === '' || !is_string($name) || $name === '') {
+            return $this->json(['error' => 'Fields "code" and "name" are required'], 400);
+        }
+
+        try {
+            $estimated = $this->parseDateTime($data['estimated_time'] ?? null);
+            $actual    = $this->parseDateTime($data['actual_time']    ?? null);
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Invalid datetime: ' . $e->getMessage()], 400);
+        }
+
+        $event = (new AwbEvent())
+            ->setNotification($notification)
+            ->setLegIndex((int) ($data['leg_index'] ?? $data['leg'] ?? 0))
+            ->setCode($code)
+            ->setName($name)
+            ->setEstimatedTime($estimated)
+            ->setActualTime($actual);
+
+        $em->persist($event);
+        $em->flush();
+
+        return $this->json($this->serializeAwbEvent($event), 201);
+    }
+    #[Route('/api/awb-events/{id}', name: 'awb_event_update', methods: ['PATCH', 'PUT'])]
+    public function updateAwbEvent(
+        int $id,
+        Request $request,
+        EntityManagerInterface $em,
+    ): JsonResponse {
+        $event = $em->getRepository(AwbEvent::class)->find($id);
+        if (!$event) {
+            return $this->json(['error' => 'AwbEvent not found'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        if (array_key_exists('code', $data) && is_string($data['code']) && $data['code'] !== '') {
+            $event->setCode($data['code']);
+        }
+        if (array_key_exists('name', $data) && is_string($data['name']) && $data['name'] !== '') {
+            $event->setName($data['name']);
+        }
+        if (array_key_exists('leg_index', $data)) {
+            $event->setLegIndex((int) $data['leg_index']);
+        }
+
+        try {
+            if (array_key_exists('estimated_time', $data)) {
+                $event->setEstimatedTime($this->parseDateTime($data['estimated_time']));
+            }
+            if (array_key_exists('actual_time', $data)) {
+                $event->setActualTime($this->parseDateTime($data['actual_time']));
+            }
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Invalid datetime: ' . $e->getMessage()], 400);
+        }
+
+        $em->flush();
+
+        return $this->json($this->serializeAwbEvent($event));
     }
 }
