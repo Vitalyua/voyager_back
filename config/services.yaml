@@ -7,6 +7,11 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    azure_whatsapp.tenant_id: '%env(AZURE_WHATSAPP_TENANT_ID)%'
+    azure_whatsapp.client_id: '%env(AZURE_WHATSAPP_CLIENT_ID)%'
+    azure_whatsapp.client_secret: '%env(AZURE_WHATSAPP_CLIENT_SECRET)%'
+    azure_whatsapp.base_url: '%env(AZURE_WHATSAPP_BASE_URL)%'
+    azure_whatsapp.channel_id: '%env(AZURE_WHATSAPP_CHANNEL_ID)%'
 
 services:
     # default configuration for services in *this* file
@@ -21,3 +26,16 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    App\Service\WhatsAppService:
+        arguments:
+            $logger: '@monolog.logger.whatsapp'
+            $tenantId: '%azure_whatsapp.tenant_id%'
+            $clientId: '%azure_whatsapp.client_id%'
+            $clientSecret: '%azure_whatsapp.client_secret%'
+            $baseUrl: '%azure_whatsapp.base_url%'
+            $channelId: '%azure_whatsapp.channel_id%'
+
+    App\Controller\Api\WhatsAppWebhookController:
+        arguments:
+            $logger: '@monolog.logger.whatsapp'
