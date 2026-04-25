@@ -27,7 +27,17 @@ class Notification
 
     #[ORM\Column(name: 'logistic_object_type', type: Types::STRING, length: 100, nullable: true)]
     private ?string $logisticObjectType = null;
+    #[ORM\Column(name: 'waybill_prefix', type: Types::STRING, length: 10, nullable: true)]
+    private ?string $waybillPrefix = null;
 
+    #[ORM\Column(name: 'waybill_number', type: Types::STRING, length: 20, nullable: true)]
+    private ?string $waybillNumber = null;
+
+    #[ORM\Column(name: 'flights', type: Types::JSON, nullable: true)]
+    private ?array $flights = null;
+
+    #[ORM\Column(name: 'roadmap', type: Types::JSON, nullable: true)]
+    private ?array $roadmap = null;
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
@@ -84,4 +94,15 @@ class Notification
         $this->logisticObjectType = $logisticObjectType;
         return $this;
     }
+    public function getWaybillPrefix(): ?string { return $this->waybillPrefix; }
+    public function setWaybillPrefix(?string $v): self { $this->waybillPrefix = $v; return $this; }
+
+    public function getWaybillNumber(): ?string { return $this->waybillNumber; }
+    public function setWaybillNumber(?string $v): self { $this->waybillNumber = $v; return $this; }
+
+    public function getFlights(): ?array { return $this->flights; }
+    public function setFlights(?array $flights): self { $this->flights = $flights; return $this; }
+
+    public function getRoadmap(): ?array { return $this->roadmap; }
+    public function setRoadmap(?array $roadmap): self { $this->roadmap = $roadmap; return $this; }
 }
