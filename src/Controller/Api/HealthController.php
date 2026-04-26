@@ -246,6 +246,20 @@ class HealthController extends AbstractController
 
         $enriched = $this->enrichShipmentNotification($notification, $client);
 
+        $notifiedContactsRaw = $em->getRepository(NotifiedContact::class)->findBy(
+            ['notificationId' => (string)$notification->getId()],
+        );
+
+        $notifiedContacts = array_map(static fn (NotifiedContact $c) => [
+            'id'              => $c->getId(),
+            'name'            => $c->getName(),
+            'role'            => $c->getRole(),
+            'channel'         => $c->getChannel(),
+            'email'           => $c->getEmail(),
+            'phone'           => $c->getPhone(),
+            'notification_id' => $c->getNotificationId(),
+        ], $notifiedContactsRaw);
+
         $checksData = array_map(static function (AcceptanceCheck $check) {
             return [
                 'id'               => $check->getId(),
@@ -296,6 +310,7 @@ class HealthController extends AbstractController
                 'estimated_time' => $e->getEstimatedTime()?->format(\DateTimeInterface::ATOM),
                 'actual_time'    => $e->getActualTime()?->format(\DateTimeInterface::ATOM),
             ], $notification->getAwbEvents()->toArray()),
+            'notified_contacts'    => $notifiedContacts,
             'acceptance_checks'    => $checksData,
         ]);
     }
