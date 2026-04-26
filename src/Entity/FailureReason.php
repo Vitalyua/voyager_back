@@ -89,6 +89,11 @@ class FailureReason
         return $this->resolvedAt;
     }
 
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
     public function setResolvedAt(?\DateTimeImmutable $resolvedAt): self
     {
         $this->resolvedAt = $resolvedAt;
