@@ -2,7 +2,11 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\AcceptanceCheck;
+use App\Entity\Attachment;
+use App\Entity\FailureReason;
 use App\Entity\Notification;
+use App\Entity\NotifiedContact;
 use App\Entity\AwbEvent;
 use App\Service\OneRecordClient;
 use Psr\Log\LoggerInterface;
@@ -205,6 +209,97 @@ class HealthController extends AbstractController
             'items' => $result,
         ]);
     }
+    #[Route('/api/notifications/shipments/detail', name: 'notification_shipment_detail', methods: ['GET'])]
+    public function shipmentNotificationDetail(
+        Request $request,
+        EntityManagerInterface $em,
+        OneRecordClient $client,
+    ): JsonResponse {
+        $notificationId = $request->query->get('notification_id');
+        $awbPrefix      = $request->query->get('awb_prefix');
+        $awbNumber      = $request->query->get('awb_number');
+
+        if ($notificationId !== null) {
+            $notification = $em->getRepository(Notification::class)->find((int) $notificationId);
+            if (!$notification) {
+                return $this->json(['error' => 'Notification not found'], 404);
+            }
+        } elseif ($awbPrefix !== null && $awbNumber !== null) {
+            $notification = $em->getRepository(Notification::class)->findOneBy(
+                ['waybillPrefix' => $awbPrefix, 'waybillNumber' => $awbNumber],
+                ['created' => 'DESC'],
+            );
+            if (!$notification) {
+                return $this->json(['error' => 'AWB not found'], 404);
+            }
+        } else {
+            return $this->json(['error' => 'Provide notification_id or both awb_prefix and awb_number'], 400);
+        }
+
+        $prefix = $notification->getWaybillPrefix();
+        $number = $notification->getWaybillNumber();
+
+        $checks = $em->getRepository(AcceptanceCheck::class)->findBy(
+            ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
+            ['createdAt' => 'DESC'],
+        );
+
+        $enriched = $this->enrichShipmentNotification($notification, $client);
+
+        $checksData = array_map(static function (AcceptanceCheck $check) {
+            return [
+                'id'               => $check->getId(),
+                'type'             => $check->getType(),
+                'foh_confirmed_at' => $check->getFohConfirmedAt()?->format(\DateTimeInterface::ATOM),
+                'created_at'       => $check->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+                'contacts'         => array_map(static fn (NotifiedContact $c) => [
+                    'id'              => $c->getId(),
+                    'name'            => $c->getName(),
+                    'role'            => $c->getRole(),
+                    'channel'         => $c->getChannel(),
+                    'email'           => $c->getEmail(),
+                    'phone'           => $c->getPhone(),
+                    'notification_id' => $c->getNotificationId(),
+                ], $check->getContacts()->toArray()),
+                'reasons'          => array_map(static fn (FailureReason $r) => [
+                    'id'          => $r->getId(),
+                    'code'        => $r->getCode(),
+                    'comment'     => $r->getComment(),
+                    'attachments' => array_map(static fn (Attachment $a) => [
+                        'id'         => $a->getId(),
+                        'name'       => $a->getName(),
+                        'mime'       => $a->getMime(),
+                        'created_at' => $a->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+                    ], $r->getAttachments()->toArray()),
+                ], $check->getReasons()->toArray()),
+            ];
+        }, $checks);
+
+        return $this->json([
+            'id'                   => $notification->getId(),
+            'totalGrossWeight'     => $enriched['totalGrossWeight'],
+            'created'              => $notification->getCreated()?->format(\DateTimeInterface::ATOM),
+            'logistic_object_id'   => $notification->getLogisticObjectId(),
+            'logistic_object_type' => $notification->getLogisticObjectType(),
+            'waybill_prefix'       => $notification->getWaybillPrefix(),
+            'waybill_number'       => $notification->getWaybillNumber(),
+            'commodity'            => $notification->getCommodity(),
+            'pieces'               => $enriched['pieces'],
+            'last_event'           => $enriched['last_event'],
+            'departureLocation'    => $enriched['departureLocation'],
+            'arrivalLocation'      => $enriched['arrivalLocation'],
+            'flight'               => $enriched['flight'],
+            'awb_events'           => array_map(static fn (AwbEvent $e) => [
+                'leg'            => $e->getLegIndex(),
+                'code'           => $e->getCode(),
+                'name'           => $e->getName(),
+                'estimated_time' => $e->getEstimatedTime()?->format(\DateTimeInterface::ATOM),
+                'actual_time'    => $e->getActualTime()?->format(\DateTimeInterface::ATOM),
+            ], $notification->getAwbEvents()->toArray()),
+            'acceptance_checks'    => $checksData,
+        ]);
+    }
+
     private function parseDateTime(mixed $value): ?\DateTimeImmutable
     {
         if ($value === null || $value === '') {
