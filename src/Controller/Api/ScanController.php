@@ -216,6 +216,7 @@ class ScanController extends AbstractController
             );
 
         $reasonsByIndex = [];
+        $reasonTexts = [];
         foreach (array_values($body['reasons'] ?? []) as $i => $r) {
             if (empty($r['code'])) {
                 continue;
@@ -229,6 +230,8 @@ class ScanController extends AbstractController
                 $this->em->persist($reason);
             }
             $reasonsByIndex[$i] = $reason;
+            $text = !empty($r['text']) ? sprintf('%s — %s', $r['code'], $r['text']) : (string)$r['code'];
+            $reasonTexts[$i] = $text;
         }
 
         if (!empty($body['notify']) && is_array($body['contacts'] ?? null) && $notification) {
@@ -268,10 +271,7 @@ class ScanController extends AbstractController
         $this->em->flush();
 
         if (!empty($body['notify']) && $notification) {
-            $reasonText = implode(', ', array_map(
-                static fn(FailureReason $r) => $r->getCode(),
-                array_values($reasonsByIndex),
-            ));
+            $reasonText = implode(', ', array_values($reasonTexts));
             $message = sprintf('AWB %s acceptance failure. Reasons: %s', $awb, $reasonText ?: 'N/A');
             foreach ($notification->getContacts() as $contact) {
                 $phone = $contact->getPhone();
