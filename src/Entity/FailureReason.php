@@ -31,7 +31,16 @@ class FailureReason
 
     #[ORM\OneToMany(targetEntity: Attachment::class, mappedBy: 'failureReason', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $attachments;
+    #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
+    private ?\DateTimeImmutable $createdAt = null;
 
+    #[ORM\PrePersist]
+    public function onPrePersist(): void
+    {
+        if ($this->createdAt === null) {
+            $this->createdAt = new \DateTimeImmutable();
+        }
+    }
     public function __construct()
     {
         $this->attachments = new ArrayCollection();
