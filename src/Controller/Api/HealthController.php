@@ -311,6 +311,7 @@ class HealthController extends AbstractController
                 'id'         => $a->getId(),
                 'name'       => $a->getName(),
                 'mime'       => $a->getMime(),
+                'url'        => '/api/scan/attachments/' . $a->getId(),
                 'created_at' => $a->getCreatedAt()?->format(\DateTimeInterface::ATOM),
             ], $r->getAttachments()->toArray()),
         ], $notification->getReasons()->toArray());

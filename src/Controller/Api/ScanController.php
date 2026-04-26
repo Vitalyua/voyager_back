@@ -10,6 +10,7 @@ use App\Entity\Notification;
 use App\Entity\NotifiedContact;
 use App\Service\AttachmentStorage;
 use App\Service\OneRecordClient;
+use App\Service\WhatsAppService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,6 +32,7 @@ class ScanController extends AbstractController
         private readonly OneRecordClient $oneRecord,
         private readonly LoggerInterface $logger,
         private readonly AttachmentStorage $attachments,
+        private readonly WhatsAppService $whatsApp,
     )
     {
     }
@@ -69,15 +71,26 @@ class ScanController extends AbstractController
             }
         }
 
+        $parties = array_map(
+            static fn (NotifiedContact $c) => [
+                'name'    => $c->getName(),
+                'role'    => $c->getRole(),
+                'channel' => $c->getChannel(),
+                'email'   => $c->getEmail(),
+                'phone'   => $c->getPhone(),
+            ],
+            $note->getContacts()->toArray(),
+        );
+
         return $this->json([
-            'awb'            => $awb,
+            'awb'             => $awb,
             'notification_id' => $note->getId(),
-            'route'          => $this->extractRoute($note->getFlights()),
-            'cargo'          => $this->extractCargo($shipment),
-            'pcs'            => $this->extractPcs($shipment),
-            'kg'             => $this->extractKg($shipment),
-            'fohConfirmedAt' => $foh?->getFohConfirmedAt()?->format('H:i\Z'),
-            'parties'        => $this->extractParties($shipment),
+            'route'           => $this->extractRoute($note->getFlights()),
+            'cargo'           => $this->extractCargo($shipment),
+            'pcs'             => $this->extractPcs($shipment),
+            'kg'              => $this->extractKg($shipment),
+            'fohConfirmedAt'  => $foh?->getFohConfirmedAt()?->format('H:i\Z'),
+            'parties'         => $parties,
         ]);
     }
 
@@ -213,6 +226,26 @@ class ScanController extends AbstractController
         $this->em->persist($check);
         $this->em->flush();
 
+        if (!empty($body['notify']) && $notification) {
+            $reasonText = implode(', ', array_map(
+                static fn(FailureReason $r) => $r->getCode(),
+                array_values($reasonsByIndex),
+            ));
+            $message = sprintf('AWB %s acceptance failure. Reasons: %s', $awb, $reasonText ?: 'N/A');
+            foreach ($notification->getContacts() as $contact) {
+                $phone = $contact->getPhone();
+                if (!$phone) continue;
+                try {
+                    $this->whatsApp->sendMessage($phone, $message);
+                } catch (\Throwable $e) {
+                    $this->logger->warning('WhatsApp send failed', [
+                        'phone' => $phone,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         return $this->json(['ok' => true, 'id' => $check->getId()]);
     }
 
@@ -224,12 +257,12 @@ class ScanController extends AbstractController
             return new JsonResponse(['error' => 'Attachment not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $check = $attachment->getFailureReason()?->getCheck();
-        if (!$check) {
+        $notification = $attachment->getFailureReason()?->getNotification();
+        if (!$notification) {
             return new JsonResponse(['error' => 'Attachment is detached'], Response::HTTP_NOT_FOUND);
         }
 
-        $awb = $check->getWaybillPrefix() . '-' . $check->getWaybillNumber();
+        $awb = $notification->getWaybillPrefix() . '-' . $notification->getWaybillNumber();
         $path = $this->attachments->path($attachment, $awb);
         if (!is_file($path)) {
             return new JsonResponse(['error' => 'File missing on disk'], Response::HTTP_GONE);
