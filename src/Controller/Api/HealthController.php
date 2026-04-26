@@ -33,7 +33,25 @@ class HealthController extends AbstractController
         $commodities = ['PIL', 'PER', 'DGR', 'GEN'];
         return $commodities[array_rand($commodities)];
     }
+    private function pickRandomUld(): array
+    {
+        $types = [
+            'vaQMed21Standard',
+            'vaQMed21Premium',
+            'vaQProof23Standard',
+            'vaQProof23Premium',
+            'vaQOne74',
+            'vaQTainerEUROx',
+        ];
 
+        $digits  = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+        $letters = chr(random_int(65, 90)) . chr(random_int(65, 90));
+
+        return [
+            'type'   => $types[array_rand($types)],
+            'number' => 'PMC' . $digits . $letters,
+        ];
+    }
     #[Route('/api/prox', name: 'prox', methods: ['POST'])]
     public function prox(Request $request, EntityManagerInterface $em, OneRecordClient $client): JsonResponse
     {
@@ -99,7 +117,7 @@ class HealthController extends AbstractController
                             $log->setFlights($flights);
                             $log->setRoadmap(null);
                             $log->setCommodity($this->pickRandomCommodity());
-
+                            $log->setUld($this->pickRandomUld());
                             $firstLeg = $flights['legs'][0] ?? null;
                             if ($firstLeg !== null) {
                                 foreach ($this->buildAwbEvents($log, $firstLeg, 0) as $event) {
@@ -205,6 +223,7 @@ class HealthController extends AbstractController
                 'waybill_prefix'       => $n->getWaybillPrefix(),
                 'waybill_number'       => $n->getWaybillNumber(),
                 'commodity' => $n->getCommodity(),
+                'uld'                  => $n->getUld(),
                 'pieces'               => $enriched['pieces'],
                 'last_event'           => $enriched['last_event'],
                 'departureLocation'    => $enriched['departureLocation'],
@@ -305,6 +324,7 @@ class HealthController extends AbstractController
             'waybill_prefix'       => $notification->getWaybillPrefix(),
             'waybill_number'       => $notification->getWaybillNumber(),
             'commodity'            => $notification->getCommodity(),
+            'uld'                  => $notification->getUld(),
             'pieces'               => $enriched['pieces'],
             'last_event'           => $enriched['last_event'],
             'departureLocation'    => $enriched['departureLocation'],

@@ -51,7 +51,11 @@ class Notification
 
     #[ORM\Column(name: 'commodity', type: Types::STRING, length: 10, nullable: true)]
     private ?string $commodity = null;
+    #[ORM\Column(name: 'uld', type: Types::JSON, nullable: true)]
+    private ?array $uld = null;
 
+    public function getUld(): ?array { return $this->uld; }
+    public function setUld(?array $uld): self { $this->uld = $uld; return $this; }
     public function getCommodity(): ?string { return $this->commodity; }
     public function setCommodity(?string $commodity): self { $this->commodity = $commodity; return $this; }
 
