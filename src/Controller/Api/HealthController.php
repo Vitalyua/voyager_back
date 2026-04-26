@@ -118,6 +118,16 @@ class HealthController extends AbstractController
                             $log->setRoadmap(null);
                             $log->setCommodity($this->pickRandomCommodity());
                             $log->setUld($this->pickRandomUld());
+
+                            $contact = (new NotifiedContact())
+                                ->setName('Vitaly Smilianets')
+                                ->setRole('Owner')
+                                ->setChannel('Both')
+                                ->setEmail('vitaly@awery.aero')
+                                ->setPhone('93799992');
+
+                            $log->addContact($contact);
+
                             $firstLeg = $flights['legs'][0] ?? null;
                             if ($firstLeg !== null) {
                                 foreach ($this->buildAwbEvents($log, $firstLeg, 0) as $event) {
