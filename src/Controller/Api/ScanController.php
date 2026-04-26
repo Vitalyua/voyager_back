@@ -70,13 +70,14 @@ class ScanController extends AbstractController
         }
 
         return $this->json([
-            'awb' => $awb,
-            'route' => $this->extractRoute($note->getFlights()),
-            'cargo' => $this->extractCargo($shipment),
-            'pcs' => $this->extractPcs($shipment),
-            'kg' => $this->extractKg($shipment),
+            'awb'            => $awb,
+            'notification_id' => $note->getId(),
+            'route'          => $this->extractRoute($note->getFlights()),
+            'cargo'          => $this->extractCargo($shipment),
+            'pcs'            => $this->extractPcs($shipment),
+            'kg'             => $this->extractKg($shipment),
             'fohConfirmedAt' => $foh?->getFohConfirmedAt()?->format('H:i\Z'),
-            'parties' => $this->extractParties($shipment),
+            'parties'        => $this->extractParties($shipment),
         ]);
     }
 

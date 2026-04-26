@@ -108,7 +108,6 @@ class AcceptanceCheck
         return $this->createdAt;
     }
 
-    /** @return Collection<int, FailureReason> */
     public function getReasons(): Collection
     {
         return $this->reasons;
@@ -118,18 +117,12 @@ class AcceptanceCheck
     {
         if (!$this->reasons->contains($reason)) {
             $this->reasons->add($reason);
-            $reason->setCheck($this);
         }
         return $this;
     }
 
     public function removeReason(FailureReason $reason): self
     {
-        if ($this->reasons->removeElement($reason)) {
-            if ($reason->getCheck() === $this) {
-                $reason->setCheck(null);
-            }
-        }
         return $this;
     }
 
