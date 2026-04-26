@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use App\Entity\AcceptanceCheck;
 use App\Entity\NotifiedContact;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,13 +24,7 @@ final class NotifiedContactController extends AbstractController
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
-        $check = $this->em->find(AcceptanceCheck::class, (int) ($data['check_id'] ?? 0));
-        if (null === $check) {
-            return $this->json(['error' => 'AcceptanceCheck not found'], Response::HTTP_BAD_REQUEST);
-        }
-
         $contact = (new NotifiedContact())
-            ->setCheck($check)
             ->setName($data['name'] ?? '')
             ->setRole($data['role'] ?? '')
             ->setChannel($data['channel'] ?? 'Email')
@@ -55,13 +48,6 @@ final class NotifiedContactController extends AbstractController
 
         $data = json_decode($request->getContent(), true) ?? [];
 
-        if (\array_key_exists('check_id', $data)) {
-            $check = $this->em->find(AcceptanceCheck::class, (int) $data['check_id']);
-            if (null === $check) {
-                return $this->json(['error' => 'AcceptanceCheck not found'], Response::HTTP_BAD_REQUEST);
-            }
-            $contact->setCheck($check);
-        }
         if (\array_key_exists('name', $data))            { $contact->setName((string) $data['name']); }
         if (\array_key_exists('role', $data))            { $contact->setRole((string) $data['role']); }
         if (\array_key_exists('channel', $data))         { $contact->setChannel((string) $data['channel']); }
@@ -88,22 +74,17 @@ final class NotifiedContactController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function serialize(NotifiedContact $c): array
     {
         return [
             'id'              => $c->getId(),
-            'check_id'        => $c->getCheck()?->getId(),
             'name'            => $c->getName(),
             'role'            => $c->getRole(),
             'channel'         => $c->getChannel(),
             'email'           => $c->getEmail(),
             'phone'           => $c->getPhone(),
             'notification_id' => $c->getNotificationId(),
-            'notified_at' =>  $c->getNotifiedAt(),
+            'notified_at'     => $c->getNotifiedAt(),
         ];
     }
 }
-

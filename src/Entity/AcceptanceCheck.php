@@ -41,14 +41,9 @@ class AcceptanceCheck
     #[ORM\OneToMany(targetEntity: FailureReason::class, mappedBy: 'check', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $reasons;
 
-    /** @var Collection<int, NotifiedContact> */
-    #[ORM\OneToMany(targetEntity: NotifiedContact::class, mappedBy: 'check', cascade: ['persist', 'remove'], orphanRemoval: true)]
-    private Collection $contacts;
-
     public function __construct()
     {
         $this->reasons = new ArrayCollection();
-        $this->contacts = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -138,28 +133,4 @@ class AcceptanceCheck
         return $this;
     }
 
-    /** @return Collection<int, NotifiedContact> */
-    public function getContacts(): Collection
-    {
-        return $this->contacts;
-    }
-
-    public function addContact(NotifiedContact $contact): self
-    {
-        if (!$this->contacts->contains($contact)) {
-            $this->contacts->add($contact);
-            $contact->setCheck($this);
-        }
-        return $this;
-    }
-
-    public function removeContact(NotifiedContact $contact): self
-    {
-        if ($this->contacts->removeElement($contact)) {
-            if ($contact->getCheck() === $this) {
-                $contact->setCheck(null);
-            }
-        }
-        return $this;
-    }
 }

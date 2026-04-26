@@ -282,15 +282,6 @@ class HealthController extends AbstractController
                 'type'             => $check->getType(),
                 'foh_confirmed_at' => $check->getFohConfirmedAt()?->format(\DateTimeInterface::ATOM),
                 'created_at'       => $check->getCreatedAt()?->format(\DateTimeInterface::ATOM),
-                'contacts'         => array_map(static fn (NotifiedContact $c) => [
-                    'id'              => $c->getId(),
-                    'name'            => $c->getName(),
-                    'role'            => $c->getRole(),
-                    'channel'         => $c->getChannel(),
-                    'email'           => $c->getEmail(),
-                    'phone'           => $c->getPhone(),
-                    'notification_id' => $c->getNotificationId(),
-                ], $check->getContacts()->toArray()),
                 'reasons'          => array_map(static fn (FailureReason $r) => [
                     'id'          => $r->getId(),
                     'code'        => $r->getCode(),
