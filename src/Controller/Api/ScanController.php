@@ -127,6 +127,31 @@ class ScanController extends AbstractController
         return $this->json(['ok' => true, 'id' => $check->getId()]);
     }
 
+    #[Route('/api/scan/{awb}/rcs', methods: ['POST'], requirements: ['awb' => self::AWB_REGEX])]
+    public function confirmRcs(string $awb): JsonResponse
+    {
+        [$prefix, $number] = $this->splitAwb($awb);
+
+        $now = new \DateTimeImmutable();
+
+        $notification = $this->em->getRepository(Notification::class)
+            ->findOneBy(
+                ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
+                ['created' => 'DESC'],
+            );
+
+        if ($notification) {
+            $awbEvent = $this->em->getRepository(AwbEvent::class)
+                ->findOneBy(['notification' => $notification, 'code' => 'RCS']);
+
+            $awbEvent?->setActualTime($now);
+        }
+
+        $this->em->flush();
+
+        return $this->json(['ok' => true]);
+    }
+
     #[Route('/api/scan/{awb}/accept', methods: ['POST'], requirements: ['awb' => self::AWB_REGEX])]
     public function accept(string $awb, Request $request): JsonResponse
     {
