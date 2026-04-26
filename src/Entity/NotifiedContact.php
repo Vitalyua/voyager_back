@@ -27,6 +27,15 @@ class NotifiedContact
     #[ORM\Column(type: Types::STRING, length: 20)]
     private string $channel = 'Email';
 
+    #[ORM\Column(type: Types::STRING, length: 190, nullable: true)]
+    private ?string $email = null;
+
+    #[ORM\Column(type: Types::STRING, length: 32, nullable: true)]
+    private ?string $phone = null;
+
+    #[ORM\Column(type: Types::STRING, length: 100, nullable: true)]
+    private ?string $notificationId = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -73,6 +82,39 @@ class NotifiedContact
     public function setChannel(string $channel): self
     {
         $this->channel = $channel;
+        return $this;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): self
+    {
+        $this->email = $email;
+        return $this;
+    }
+
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    public function setPhone(?string $phone): self
+    {
+        $this->phone = $phone;
+        return $this;
+    }
+
+    public function getNotificationId(): ?string
+    {
+        return $this->notificationId;
+    }
+
+    public function setNotificationId(?string $notificationId): self
+    {
+        $this->notificationId = $notificationId;
         return $this;
     }
 }

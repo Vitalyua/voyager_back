@@ -153,7 +153,9 @@ class ScanController extends AbstractController
                 $contact = (new NotifiedContact())
                     ->setName((string)($c['name'] ?? ''))
                     ->setRole((string)($c['role'] ?? ''))
-                    ->setChannel((string)($c['channel'] ?? 'Email'));
+                    ->setChannel((string)($c['channel'] ?? 'Email'))
+                    ->setEmail(!empty($c['email']) ? (string)$c['email'] : null)
+                    ->setPhone(!empty($c['phone']) ? (string)$c['phone'] : null);
                 $check->addContact($contact);
             }
         }
