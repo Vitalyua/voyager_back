@@ -16,9 +16,9 @@ class FailureReason
     #[ORM\Column(type: Types::INTEGER)]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: AcceptanceCheck::class, inversedBy: 'reasons')]
-    #[ORM\JoinColumn(name: 'check_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    private ?AcceptanceCheck $check = null;
+    #[ORM\ManyToOne(targetEntity: Notification::class, inversedBy: 'reasons')]
+    #[ORM\JoinColumn(name: 'notification_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    private ?Notification $notification = null;
 
     #[ORM\Column(type: Types::STRING, length: 6)]
     private string $code = '';
@@ -42,14 +42,14 @@ class FailureReason
         return $this->id;
     }
 
-    public function getCheck(): ?AcceptanceCheck
+    public function getNotification(): ?Notification
     {
-        return $this->check;
+        return $this->notification;
     }
 
-    public function setCheck(?AcceptanceCheck $check): self
+    public function setNotification(?Notification $notification): self
     {
-        $this->check = $check;
+        $this->notification = $notification;
         return $this;
     }
 
