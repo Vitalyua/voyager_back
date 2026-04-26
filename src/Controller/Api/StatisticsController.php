@@ -45,4 +45,59 @@ class StatisticsController extends AbstractController
             'last_notification_at'  => $lastNotificationAt,
         ]);
     }
+
+    #[Route('/api/statistics/late-awb', methods: ['GET'])]
+    public function lateAwb(EntityManagerInterface $em): JsonResponse
+    {
+        $rows = $em->getConnection()->fetchAllAssociative(
+            'SELECT n.id, n.waybill_prefix, n.waybill_number, n.created
+             FROM notification n
+             WHERE n.waybill_prefix IS NOT NULL AND n.waybill_number IS NOT NULL
+               AND n.id NOT IN (
+                 SELECT DISTINCT n2.id
+                 FROM notification n2
+                 JOIN awb_event e ON e.notification_id = n2.id
+                 WHERE
+                   (e.actual_time IS NOT NULL AND e.estimated_time < e.actual_time)
+                   OR
+                   (e.actual_time IS NULL AND e.estimated_time < NOW())
+               )
+             ORDER BY n.created DESC'
+        );
+
+        return $this->json($rows);
+    }
+
+    #[Route('/api/statistics/failure-reasons', methods: ['GET'])]
+    public function failureReasons(EntityManagerInterface $em): JsonResponse
+    {
+        $rows = $em->getConnection()->fetchAllAssociative(
+            'SELECT fr.id, fr.code, fr.comment, fr.resolved_at, fr.created_at,
+                    n.waybill_prefix, n.waybill_number
+             FROM failure_reason fr
+             JOIN notification n ON fr.notification_id = n.id
+             ORDER BY fr.created_at DESC
+             LIMIT 20'
+        );
+
+        return $this->json($rows);
+    }
+
+    #[Route('/api/statistics/awb-with-uld', methods: ['GET'])]
+    public function awbWithUld(EntityManagerInterface $em): JsonResponse
+    {
+        $rows = $em->getConnection()->fetchAllAssociative(
+            'SELECT id, waybill_prefix, waybill_number, uld, created
+             FROM notification
+             WHERE uld IS NOT NULL
+             ORDER BY created DESC
+             LIMIT 20'
+        );
+
+        foreach ($rows as &$row) {
+            $row['uld'] = json_decode($row['uld'], true);
+        }
+
+        return $this->json($rows);
+    }
 }
