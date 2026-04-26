@@ -307,6 +307,7 @@ class HealthController extends AbstractController
             'code'        => $r->getCode(),
             'comment'     => $r->getComment(),
             'resolved_at' => $r->getResolvedAt()?->format(\DateTimeInterface::ATOM),
+            'created_at' => $r->getCreatedAt()?->format(\DateTimeInterface::ATOM),
             'attachments' => array_map(static fn (Attachment $a) => [
                 'id'         => $a->getId(),
                 'name'       => $a->getName(),
