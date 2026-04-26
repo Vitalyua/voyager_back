@@ -226,6 +226,26 @@ class ScanController extends AbstractController
         $this->em->persist($check);
         $this->em->flush();
 
+        if (!empty($body['notify']) && $notification) {
+            $reasonText = implode(', ', array_map(
+                static fn(FailureReason $r) => $r->getCode(),
+                array_values($reasonsByIndex),
+            ));
+            $message = sprintf('AWB %s acceptance failure. Reasons: %s', $awb, $reasonText ?: 'N/A');
+            foreach ($notification->getContacts() as $contact) {
+                $phone = $contact->getPhone();
+                if (!$phone) continue;
+                try {
+                    $this->whatsApp->sendMessage($phone, $message);
+                } catch (\Throwable $e) {
+                    $this->logger->warning('WhatsApp send failed', [
+                        'phone' => $phone,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         return $this->json(['ok' => true, 'id' => $check->getId()]);
     }
 
