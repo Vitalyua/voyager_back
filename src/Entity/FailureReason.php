@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'failure_reason')]
+#[ORM\HasLifecycleCallbacks]
 class FailureReason
 {
     #[ORM\Id]

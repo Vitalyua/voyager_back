@@ -230,8 +230,12 @@ class ScanController extends AbstractController
                 $this->em->persist($reason);
             }
             $reasonsByIndex[$i] = $reason;
-            $text = !empty($r['text']) ? sprintf('%s — %s', $r['code'], $r['text']) : (string)$r['code'];
-            $reasonTexts[$i] = $text;
+            $label = !empty($r['text'])
+                ? sprintf('%s — %s', $r['code'], $r['text']) : (string)$r['code'];
+            if (!empty($r['description'])) {
+                $label .= sprintf(' (%s)', $r['description']);
+            }
+            $reasonTexts[$i] = $label;
         }
 
         if (!empty($body['notify']) && is_array($body['contacts'] ?? null) && $notification) {
@@ -271,8 +275,17 @@ class ScanController extends AbstractController
         $this->em->flush();
 
         if (!empty($body['notify']) && $notification) {
-            $reasonText = implode(', ', array_values($reasonTexts));
-            $message = sprintf('AWB %s acceptance failure. Reasons: %s', $awb, $reasonText ?: 'N/A');
+            $lines = ["*AWB {$awb} — Acceptance Failure*"];
+            $num = 1;
+            foreach ($reasonsByIndex as $i => $reason) {
+                $label = $reasonTexts[$i] ?? $reason->getCode();
+                $lines[] = '';
+                $lines[] = sprintf('*%d. %s*', $num++, $label);
+                if ($comment = $reason->getComment()) {
+                    $lines[] = $comment;
+                }
+            }
+            $message = implode("\n", $lines);
             foreach ($notification->getContacts() as $contact) {
                 $phone = $contact->getPhone();
                 if (!$phone) continue;
