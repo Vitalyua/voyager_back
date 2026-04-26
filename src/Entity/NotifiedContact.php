@@ -14,10 +14,6 @@ class NotifiedContact
     #[ORM\Column(type: Types::INTEGER)]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: AcceptanceCheck::class, inversedBy: 'contacts')]
-    #[ORM\JoinColumn(name: 'check_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    private ?AcceptanceCheck $check = null;
-
     #[ORM\Column(type: Types::STRING, length: 120)]
     private string $name = '';
 
@@ -42,17 +38,6 @@ class NotifiedContact
     public function getId(): ?int
     {
         return $this->id;
-    }
-
-    public function getCheck(): ?AcceptanceCheck
-    {
-        return $this->check;
-    }
-
-    public function setCheck(?AcceptanceCheck $check): self
-    {
-        $this->check = $check;
-        return $this;
     }
 
     public function getName(): string

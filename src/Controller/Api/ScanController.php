@@ -166,14 +166,21 @@ class ScanController extends AbstractController
         }
 
         if (!empty($body['notify']) && is_array($body['contacts'] ?? null)) {
+            $notification = $this->em->getRepository(Notification::class)
+                ->findOneBy(
+                    ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
+                    ['created' => 'DESC'],
+                );
+
             foreach ($body['contacts'] as $c) {
                 $contact = (new NotifiedContact())
                     ->setName((string)($c['name'] ?? ''))
                     ->setRole((string)($c['role'] ?? ''))
                     ->setChannel((string)($c['channel'] ?? 'Email'))
                     ->setEmail(!empty($c['email']) ? (string)$c['email'] : null)
-                    ->setPhone(!empty($c['phone']) ? (string)$c['phone'] : null);
-                $check->addContact($contact);
+                    ->setPhone(!empty($c['phone']) ? (string)$c['phone'] : null)
+                    ->setNotificationId($notification ? (string)$notification->getId() : null);
+                $this->em->persist($contact);
             }
         }
 
