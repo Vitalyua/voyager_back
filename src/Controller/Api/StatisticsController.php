@@ -83,7 +83,7 @@ class StatisticsController extends AbstractController
         return $this->json($rows);
     }
 
-    #[Route('/api/statistics/awb-with-uld', methods: ['GET'])]
+    #[Route('/api/statistics/awbwithuld', methods: ['GET'])]
     public function awbWithUld(EntityManagerInterface $em): JsonResponse
     {
         $rows = $em->getConnection()->fetchAllAssociative(
