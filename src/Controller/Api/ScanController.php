@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\AcceptanceCheck;
 use App\Entity\Attachment;
+use App\Entity\AwbEvent;
 use App\Entity\FailureReason;
 use App\Entity\Notification;
 use App\Entity\NotifiedContact;
@@ -84,13 +85,29 @@ class ScanController extends AbstractController
     {
         [$prefix, $number] = $this->splitAwb($awb);
 
+        $now = new \DateTimeImmutable();
+
         $check = (new AcceptanceCheck())
             ->setWaybillPrefix($prefix)
             ->setWaybillNumber($number)
             ->setType(AcceptanceCheck::TYPE_FOH)
-            ->setFohConfirmedAt(new \DateTimeImmutable());
+            ->setFohConfirmedAt($now);
 
         $this->em->persist($check);
+
+        $notification = $this->em->getRepository(Notification::class)
+            ->findOneBy(
+                ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
+                ['created' => 'DESC'],
+            );
+
+        if ($notification) {
+            $awbEvent = $this->em->getRepository(AwbEvent::class)
+                ->findOneBy(['notification' => $notification, 'code' => 'FOH']);
+
+            $awbEvent?->setActualTime($now);
+        }
+
         $this->em->flush();
 
         return $this->json(['ok' => true, 'id' => $check->getId()]);
