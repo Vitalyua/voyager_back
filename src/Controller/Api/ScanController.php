@@ -154,6 +154,13 @@ class ScanController extends AbstractController
             ->setWaybillNumber($number)
             ->setType(AcceptanceCheck::TYPE_FAILURE);
 
+        $notification = isset($body['notification_id'])
+            ? $this->em->getRepository(Notification::class)->find((int) $body['notification_id'])
+            : $this->em->getRepository(Notification::class)->findOneBy(
+                ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
+                ['created' => 'DESC'],
+            );
+
         $reasonsByIndex = [];
         foreach (array_values($body['reasons'] ?? []) as $i => $r) {
             if (empty($r['code'])) {
@@ -162,26 +169,23 @@ class ScanController extends AbstractController
             $reason = (new FailureReason())
                 ->setCode((string)$r['code'])
                 ->setComment(isset($r['comment']) ? (string)$r['comment'] : null);
-            $check->addReason($reason);
+            if ($notification) {
+                $notification->addReason($reason);
+            } else {
+                $this->em->persist($reason);
+            }
             $reasonsByIndex[$i] = $reason;
         }
 
-        if (!empty($body['notify']) && is_array($body['contacts'] ?? null)) {
-            $notification = $this->em->getRepository(Notification::class)
-                ->findOneBy(
-                    ['waybillPrefix' => $prefix, 'waybillNumber' => $number],
-                    ['created' => 'DESC'],
-                );
-
+        if (!empty($body['notify']) && is_array($body['contacts'] ?? null) && $notification) {
             foreach ($body['contacts'] as $c) {
                 $contact = (new NotifiedContact())
                     ->setName((string)($c['name'] ?? ''))
                     ->setRole((string)($c['role'] ?? ''))
                     ->setChannel((string)($c['channel'] ?? 'Email'))
                     ->setEmail(!empty($c['email']) ? (string)$c['email'] : null)
-                    ->setPhone(!empty($c['phone']) ? (string)$c['phone'] : null)
-                    ->setNotificationId($notification ? (string)$notification->getId() : null);
-                $this->em->persist($contact);
+                    ->setPhone(!empty($c['phone']) ? (string)$c['phone'] : null);
+                $notification->addContact($contact);
             }
         }
 

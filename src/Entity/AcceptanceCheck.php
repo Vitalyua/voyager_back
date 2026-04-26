@@ -2,8 +2,6 @@
 
 namespace App\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -37,14 +35,7 @@ class AcceptanceCheck
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $createdAt = null;
 
-    /** @var Collection<int, FailureReason> */
-    #[ORM\OneToMany(targetEntity: FailureReason::class, mappedBy: 'check', cascade: ['persist', 'remove'], orphanRemoval: true)]
-    private Collection $reasons;
-
-    public function __construct()
-    {
-        $this->reasons = new ArrayCollection();
-    }
+    public function __construct() {}
 
     #[ORM\PrePersist]
     public function onPrePersist(): void
@@ -106,24 +97,6 @@ class AcceptanceCheck
     public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->createdAt;
-    }
-
-    public function getReasons(): Collection
-    {
-        return $this->reasons;
-    }
-
-    public function addReason(FailureReason $reason): self
-    {
-        if (!$this->reasons->contains($reason)) {
-            $this->reasons->add($reason);
-        }
-        return $this;
-    }
-
-    public function removeReason(FailureReason $reason): self
-    {
-        return $this;
     }
 
 }

@@ -20,6 +20,12 @@ class Notification
     #[ORM\OneToMany(mappedBy: 'notification', targetEntity: AwbEvent::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['legIndex' => 'ASC', 'estimatedTime' => 'ASC'])]
     private Collection $awbEvents;
+
+    #[ORM\OneToMany(mappedBy: 'notification', targetEntity: FailureReason::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $reasons;
+
+    #[ORM\OneToMany(mappedBy: 'notification', targetEntity: NotifiedContact::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $contacts;
     #[ORM\Column(type: Types::JSON)]
     private array $json = [];
 
@@ -52,6 +58,8 @@ class Notification
     public function __construct()
     {
         $this->awbEvents = new ArrayCollection();
+        $this->reasons   = new ArrayCollection();
+        $this->contacts  = new ArrayCollection();
     }
 
     /** @return Collection<int, AwbEvent> */
@@ -62,6 +70,29 @@ class Notification
         if (!$this->awbEvents->contains($e)) {
             $this->awbEvents->add($e);
             $e->setNotification($this);
+        }
+        return $this;
+    }
+
+    public function getReasons(): Collection { return $this->reasons; }
+
+    public function addReason(FailureReason $r): self
+    {
+        if (!$this->reasons->contains($r)) {
+            $this->reasons->add($r);
+            $r->setNotification($this);
+        }
+        return $this;
+    }
+
+    /** @return Collection<int, NotifiedContact> */
+    public function getContacts(): Collection { return $this->contacts; }
+
+    public function addContact(NotifiedContact $c): self
+    {
+        if (!$this->contacts->contains($c)) {
+            $this->contacts->add($c);
+            $c->setNotification($this);
         }
         return $this;
     }

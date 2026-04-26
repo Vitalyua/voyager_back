@@ -263,7 +263,7 @@ class HealthController extends AbstractController
         $enriched = $this->enrichShipmentNotification($notification, $client);
 
         $notifiedContactsRaw = $em->getRepository(NotifiedContact::class)->findBy(
-            ['notificationId' => (string)$notification->getId()],
+            ['notification' => $notification],
         );
 
         $notifiedContacts = array_map(static fn (NotifiedContact $c) => [
@@ -273,28 +273,28 @@ class HealthController extends AbstractController
             'channel'         => $c->getChannel(),
             'email'           => $c->getEmail(),
             'phone'           => $c->getPhone(),
-            'notification_id' => $c->getNotificationId(),
+            'notification_id' => $c->getNotification()?->getId(),
         ], $notifiedContactsRaw);
 
-        $checksData = array_map(static function (AcceptanceCheck $check) {
-            return [
-                'id'               => $check->getId(),
-                'type'             => $check->getType(),
-                'foh_confirmed_at' => $check->getFohConfirmedAt()?->format(\DateTimeInterface::ATOM),
-                'created_at'       => $check->getCreatedAt()?->format(\DateTimeInterface::ATOM),
-                'reasons'          => array_map(static fn (FailureReason $r) => [
-                    'id'          => $r->getId(),
-                    'code'        => $r->getCode(),
-                    'comment'     => $r->getComment(),
-                    'attachments' => array_map(static fn (Attachment $a) => [
-                        'id'         => $a->getId(),
-                        'name'       => $a->getName(),
-                        'mime'       => $a->getMime(),
-                        'created_at' => $a->getCreatedAt()?->format(\DateTimeInterface::ATOM),
-                    ], $r->getAttachments()->toArray()),
-                ], $check->getReasons()->toArray()),
-            ];
-        }, $checks);
+        $checksData = array_map(static fn (AcceptanceCheck $check) => [
+            'id'               => $check->getId(),
+            'type'             => $check->getType(),
+            'foh_confirmed_at' => $check->getFohConfirmedAt()?->format(\DateTimeInterface::ATOM),
+            'created_at'       => $check->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+        ], $checks);
+
+        $reasonsData = array_map(static fn (FailureReason $r) => [
+            'id'          => $r->getId(),
+            'code'        => $r->getCode(),
+            'comment'     => $r->getComment(),
+            'resolved_at' => $r->getResolvedAt()?->format(\DateTimeInterface::ATOM),
+            'attachments' => array_map(static fn (Attachment $a) => [
+                'id'         => $a->getId(),
+                'name'       => $a->getName(),
+                'mime'       => $a->getMime(),
+                'created_at' => $a->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+            ], $r->getAttachments()->toArray()),
+        ], $notification->getReasons()->toArray());
 
         return $this->json([
             'id'                   => $notification->getId(),
@@ -317,6 +317,7 @@ class HealthController extends AbstractController
                 'estimated_time' => $e->getEstimatedTime()?->format(\DateTimeInterface::ATOM),
                 'actual_time'    => $e->getActualTime()?->format(\DateTimeInterface::ATOM),
             ], $notification->getAwbEvents()->toArray()),
+            'failure_reasons'      => $reasonsData,
             'notified_contacts'    => $notifiedContacts,
             'acceptance_checks'    => $checksData,
         ]);

@@ -14,6 +14,10 @@ class NotifiedContact
     #[ORM\Column(type: Types::INTEGER)]
     private ?int $id = null;
 
+    #[ORM\ManyToOne(targetEntity: Notification::class, inversedBy: 'contacts')]
+    #[ORM\JoinColumn(name: 'notification_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+    private ?Notification $notification = null;
+
     #[ORM\Column(type: Types::STRING, length: 120)]
     private string $name = '';
 
@@ -29,15 +33,23 @@ class NotifiedContact
     #[ORM\Column(type: Types::STRING, length: 32, nullable: true)]
     private ?string $phone = null;
 
-    #[ORM\Column(type: Types::STRING, length: 100, nullable: true)]
-    private ?string $notificationId = null;
-
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $notifiedAt = null;
 
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getNotification(): ?Notification
+    {
+        return $this->notification;
+    }
+
+    public function setNotification(?Notification $notification): self
+    {
+        $this->notification = $notification;
+        return $this;
     }
 
     public function getName(): string
@@ -92,17 +104,6 @@ class NotifiedContact
     public function setPhone(?string $phone): self
     {
         $this->phone = $phone;
-        return $this;
-    }
-
-    public function getNotificationId(): ?string
-    {
-        return $this->notificationId;
-    }
-
-    public function setNotificationId(?string $notificationId): self
-    {
-        $this->notificationId = $notificationId;
         return $this;
     }
 

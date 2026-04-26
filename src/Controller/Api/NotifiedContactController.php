@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Entity\Notification;
 use App\Entity\NotifiedContact;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,13 +25,17 @@ final class NotifiedContactController extends AbstractController
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
+        $notification = isset($data['notification_id'])
+            ? $this->em->find(Notification::class, (int) $data['notification_id'])
+            : null;
+
         $contact = (new NotifiedContact())
+            ->setNotification($notification)
             ->setName($data['name'] ?? '')
             ->setRole($data['role'] ?? '')
             ->setChannel($data['channel'] ?? 'Email')
             ->setEmail($data['email'] ?? null)
-            ->setPhone($data['phone'] ?? null)
-            ->setNotificationId($data['notification_id'] ?? null);
+            ->setPhone($data['phone'] ?? null);
 
         $this->em->persist($contact);
         $this->em->flush();
@@ -48,12 +53,15 @@ final class NotifiedContactController extends AbstractController
 
         $data = json_decode($request->getContent(), true) ?? [];
 
-        if (\array_key_exists('name', $data))            { $contact->setName((string) $data['name']); }
-        if (\array_key_exists('role', $data))            { $contact->setRole((string) $data['role']); }
-        if (\array_key_exists('channel', $data))         { $contact->setChannel((string) $data['channel']); }
-        if (\array_key_exists('email', $data))           { $contact->setEmail($data['email']); }
-        if (\array_key_exists('phone', $data))           { $contact->setPhone($data['phone']); }
-        if (\array_key_exists('notification_id', $data)) { $contact->setNotificationId($data['notification_id']); }
+        if (\array_key_exists('notification_id', $data)) {
+            $notification = $this->em->find(Notification::class, (int) $data['notification_id']);
+            $contact->setNotification($notification);
+        }
+        if (\array_key_exists('name', $data))    { $contact->setName((string) $data['name']); }
+        if (\array_key_exists('role', $data))    { $contact->setRole((string) $data['role']); }
+        if (\array_key_exists('channel', $data)) { $contact->setChannel((string) $data['channel']); }
+        if (\array_key_exists('email', $data))   { $contact->setEmail($data['email']); }
+        if (\array_key_exists('phone', $data))   { $contact->setPhone($data['phone']); }
 
         $this->em->flush();
 
@@ -78,12 +86,12 @@ final class NotifiedContactController extends AbstractController
     {
         return [
             'id'              => $c->getId(),
+            'notification_id' => $c->getNotification()?->getId(),
             'name'            => $c->getName(),
             'role'            => $c->getRole(),
             'channel'         => $c->getChannel(),
             'email'           => $c->getEmail(),
             'phone'           => $c->getPhone(),
-            'notification_id' => $c->getNotificationId(),
             'notified_at'     => $c->getNotifiedAt(),
         ];
     }
