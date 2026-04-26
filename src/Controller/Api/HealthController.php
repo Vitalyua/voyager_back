@@ -51,19 +51,14 @@ class HealthController extends AbstractController
                     ? substr($rawType, strrpos($rawType, '#') + 1)
                     : $rawType;
             }
-
             $rawObject = $body['https://onerecord.iata.org/ns/api#hasLogisticsObject']['@id'] ?? null;
             if (is_string($rawObject)) {
                 $objectId = $this->extractObjectId($rawObject) ?? basename($rawObject);
             }
         }
 
-        $log = (new Notification())
-            ->setJson(is_array($body) ? $body : ['raw' => $body])
-            ->setLogisticObjectType($objectType)
-            ->setLogisticObjectId($objectId);
+        $log = null;
 
-        // если это Shipment — подтягиваем waybill, prefix/number и сразу генерим flights
         if ($objectType === 'Shipment' && $objectId !== null) {
             try {
                 $shipment   = $client->getLogisticsObject($objectId);
@@ -75,25 +70,46 @@ class HealthController extends AbstractController
                     $prefix = $waybill['https://onerecord.iata.org/ns/cargo#waybillPrefix'] ?? null;
                     $number = $waybill['https://onerecord.iata.org/ns/cargo#waybillNumber'] ?? null;
 
-                    $log->setWaybillPrefix(is_string($prefix) ? $prefix : null);
-                    $log->setWaybillNumber(is_string($number) ? $number : null);
-
                     if (!empty($prefix) && !empty($number)) {
-                        $flights = $this->pickRandomFlight();
-                        $log->setFlights($flights);
-                        $log->setRoadmap(null);
-                        $log->setCommodity($this->pickRandomCommodity());
+                        // ищем существующую нотификацию по prefix+number
+                        $existing = $em->getRepository(Notification::class)->findOneBy([
+                            'waybillPrefix' => $prefix,
+                            'waybillNumber' => $number,
+                        ]);
 
-                        // awb-события только для первого лега
-                        $firstLeg = $flights['legs'][0] ?? null;
-                        if ($firstLeg !== null) {
-                            foreach ($this->buildAwbEvents($log, $firstLeg, 0) as $event) {
-                                $log->addAwbEvent($event);
+                        if ($existing !== null) {
+                            // обновляем: только базовые поля, без flights/commodity/awbEvents
+                            $existing
+                                ->setJson(is_array($body) ? $body : ['raw' => $body])
+                                ->setLogisticObjectType($objectType)
+                                ->setLogisticObjectId($objectId);
+
+                            $em->flush();
+                            $log = $existing;
+                        } else {
+                            // создаём новую со всей обвязкой
+                            $log = (new Notification())
+                                ->setJson(is_array($body) ? $body : ['raw' => $body])
+                                ->setLogisticObjectType($objectType)
+                                ->setLogisticObjectId($objectId)
+                                ->setWaybillPrefix($prefix)
+                                ->setWaybillNumber($number);
+
+                            $flights = $this->pickRandomFlight();
+                            $log->setFlights($flights);
+                            $log->setRoadmap(null);
+                            $log->setCommodity($this->pickRandomCommodity());
+
+                            $firstLeg = $flights['legs'][0] ?? null;
+                            if ($firstLeg !== null) {
+                                foreach ($this->buildAwbEvents($log, $firstLeg, 0) as $event) {
+                                    $log->addAwbEvent($event);
+                                }
                             }
-                        }
 
-                        $em->persist($log);
-                        $em->flush();
+                            $em->persist($log);
+                            $em->flush();
+                        }
                     }
                 }
             } catch (\Throwable $e) {
@@ -106,9 +122,9 @@ class HealthController extends AbstractController
 
         return $this->json([
             'status'         => 'ok',
-            'id'             => $log->getId(),
-            'waybill_prefix' => $log->getWaybillPrefix(),
-            'waybill_number' => $log->getWaybillNumber(),
+            'id'             => $log?->getId(),
+            'waybill_prefix' => $log?->getWaybillPrefix(),
+            'waybill_number' => $log?->getWaybillNumber(),
         ]);
     }
     private function buildRoadmap(array $leg): array

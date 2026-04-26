@@ -36,6 +36,9 @@ class NotifiedContact
     #[ORM\Column(type: Types::STRING, length: 100, nullable: true)]
     private ?string $notificationId = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $notifiedAt = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -116,5 +119,15 @@ class NotifiedContact
     {
         $this->notificationId = $notificationId;
         return $this;
+    }
+
+    public function getNotifiedAt(): ?\DateTimeImmutable
+    {
+        return $this->notifiedAt;
+    }
+
+    public function setNotifiedAt(?\DateTimeImmutable $notifiedAt): void
+    {
+        $this->notifiedAt = $notifiedAt;
     }
 }
