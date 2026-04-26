@@ -26,6 +26,9 @@ class FailureReason
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $comment = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $resolvedAt = null;
+
     #[ORM\OneToMany(targetEntity: Attachment::class, mappedBy: 'failureReason', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $attachments;
 
@@ -69,6 +72,17 @@ class FailureReason
     public function setComment(?string $comment): self
     {
         $this->comment = $comment;
+        return $this;
+    }
+
+    public function getResolvedAt(): ?\DateTimeImmutable
+    {
+        return $this->resolvedAt;
+    }
+
+    public function setResolvedAt(?\DateTimeImmutable $resolvedAt): self
+    {
+        $this->resolvedAt = $resolvedAt;
         return $this;
     }
 
